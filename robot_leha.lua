@@ -107,11 +107,6 @@ function searchFractals()
 end
 
 
-function inInterval(dt)
-    -- проверяет попадает ли данное время в интервал открытия
-end
-
-
 function greenFractalMatch(val)
     -- проверка что это фрактал из сегодняшних свечей
     if greenf_dt.hour == 10 and greenf_dt.min < 5 then
@@ -132,6 +127,7 @@ function greenFractalMatch(val)
 
     return false
 end
+
 
 function redFractalMatch(val)
     -- проверка что это фрактал из сегодняшних свечей
@@ -157,7 +153,6 @@ end
 
 
 -- функция рассчитывает относительный размер стопа
-
 function getStopSize()
     local N = getNumCandles("Price")
     local t, count, l = getCandlesByIndex("Price", 0, N-numCandlesForStop, numCandlesForStop) -- получить последние 163 свечи
