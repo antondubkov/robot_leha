@@ -15,13 +15,13 @@ function OnInit()
     DS = CreateDataSource("SPBFUT", INSTRUMENT, INTERVAL_M5)
     -- подпишемс§ на обновление цены INSTRUMENT (SiZ6)
     DS:SetUpdateCallback(NewPrice)
-    PrintDbgStr("Чкрипт закрыти§ запущен! ".. OPERATION .. " " .. tostring(QUANTITY) .. " в " .. CLOSE_TIME.hour .. ":" .. CLOSE_TIME.min)
+    PrintDbgStr("Скрипт закрытия запущен! ".. OPERATION .. " " .. tostring(QUANTITY) .. " в " .. CLOSE_TIME.hour .. ":" .. CLOSE_TIME.min)
 end
 
 
 
 function doClose(curPrice)
-    PrintDbgStr("Ђакрываемс§!")
+    PrintDbgStr("Закрываемся!")
 
     local price; -- цена за§вки
     if OPERATION == "B" then
@@ -49,7 +49,7 @@ function NewPrice(i)  -- функци§ вызываетс§ при каждом обновлении цены
     local curPrice = DS:C(i)
     local dt = DS:T(i)
     if dt.hour >= CLOSE_TIME.hour and dt.min >= CLOSE_TIME.min then
-        PrintDbgStr("ђЦ?Ю€ ЂЉ†ЦЯУї€ ЊЦї°ОЭ!")
+        PrintDbgStr("Время закрытия наступило!")
         doClose(curPrice)
         Run = false -- завершение работы!!!
     end

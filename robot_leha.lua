@@ -1,8 +1,8 @@
 local INSTRUMENT = "SiZ6"
 local ACCOUNT = "SPBFUT00LLD"
 local CLIENT_CODE = "SPBFUT00LLD" -- код клиента
-local START_TIME = {hour=10, min=30} -- время начала поиска входа
-local END_TIME = {hour=18, min=00} -- время конца поиска входа
+local START_TIME = {hour=10, min=30} -- время начиная с которого учитываются фракталы
+local END_TIME = {hour=10, min=55} -- время конца поиска входа (робот завершается)
 local BUFFER = 100 -- спред/проскальзывание
 local STOP_MULTIPLIER = 4 -- мультипликатор для относительного размера стопа
 local numCandlesForStop = 163 -- колво свечей для расчета размера стопа
@@ -42,7 +42,7 @@ function OnInit()
         local x = getItem("futures_client_limits", i)
         if x.trdaccid == ACCOUNT and x.limit_type == 0 then
             ACCOUNT_BALANCE = x.cbplplanned
-            PrintDbgStr("Баланс Счета: "..ACCOUNT_BALANCE.. " -- " .. x.kgo )
+            PrintDbgStr("Баланс Счета: "..ACCOUNT_BALANCE)
             break
         end
     end
@@ -64,7 +64,7 @@ function OnInit()
 end
 
 
--- поиск последних фракталов + проверка условия а)
+-- поиск последних фракталов при старте скрипта + проверка условия а)
 function searchFractals()
     local N = getNumCandles("Fractal")
     local tbl, count, l = getCandlesByIndex("Fractal", 0, N-163, 163)
@@ -108,8 +108,8 @@ end
 
 
 function greenFractalMatch(val)
-    -- проверка что это фрактал из сегодняшних свечей
-    if greenf_dt.hour == 10 and greenf_dt.min < 5 then
+    -- проверка что это фрактал учитывается
+    if not (greenf_dt.hour >= START_TIME.hour and greenf_dt.min >= START_TIME.min) then
         return false
     end
 
@@ -121,6 +121,7 @@ function greenFractalMatch(val)
     v1 = t1[0].close
     v2 = t2[0].close
 
+    -- проверка что этот зеленый фрактал выше всех средних
     if val > v0 and val > v1 and val > v2 then
         return true
     end
@@ -131,7 +132,7 @@ end
 
 function redFractalMatch(val)
     -- проверка что это фрактал из сегодняшних свечей
-    if redf_dt.hour == 10 and redf_dt.min < 5 then
+    if not (redf_dt.hour >= START_TIME.hour and redf_dt.min >= START_TIME.min) then
         return false
     end
 
@@ -144,6 +145,7 @@ function redFractalMatch(val)
     v1 = t1[0].close
     v2 = t2[0].close
 
+    -- проверка что этот красный фрактал ниже всех средних
     if val < v0 and val < v1 and val < v2 then
         return true
     end
@@ -308,13 +310,29 @@ function doSell(curPrice)
 end
 
 
+-- функция вызывается при каждом обновлении цены
 function NewPrice(i)
-    -- функция вызывается при каждом обновлении цены
-    local curPrice = DS:C(i)
+
+    -- ничего не делаем если надо заканчивать
+    if not Run then
+        return
+    end
+
+    local curPrice = DS:C(i) -- цена
 
     -- новая свеча -- произвести необходимые действия
     if last_idx < i then
         PrintDbgStr("Новая свеча №".. i .. ", состояния: " .. b_state .. " " .. s_state)
+
+        last_idx = i
+
+        -- проверка END_TIME
+        local dt = DS:T(i) -- время новой свечи
+        if dt.hour >= END_TIME.hour and dt.min >= END_TIME.min then
+            PrintDbgStr("END_TIME наступило! Завершение работы...")
+            Run = false
+            return
+        end
 
         -- если было состояние 2 -- сбрасываем на 0 (означает что мы не нашли на прошлой свече пробоя макс/мин предыдущей свечи)
         if b_state == 2 then
@@ -349,8 +367,6 @@ function NewPrice(i)
                 end
             end
         end
-
-        last_idx = i
     end
 
     -- если мы в статусе 2 -- проверяем текущую цену на условие в)
