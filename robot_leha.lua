@@ -1,70 +1,70 @@
 local INSTRUMENT = "SiZ6"
 local ACCOUNT = "SPBFUT00LLD"
-local CLIENT_CODE = "SPBFUT00LLD" -- РєРѕРґ РєР»РёРµРЅС‚Р°
-local START_TIME = {hour=10, min=30} -- РІСЂРµРјСЏ РЅР°С‡Р°Р»Р° РїРѕРёСЃРєР° РІС…РѕРґР°
-local END_TIME = {hour=18, min=00} -- РІСЂРµРјСЏ РєРѕРЅС†Р° РїРѕРёСЃРєР° РІС…РѕРґР°
-local BUFFER = 100 -- СЃРїСЂРµРґ/РїСЂРѕСЃРєР°Р»СЊР·С‹РІР°РЅРёРµ
-local STOP_MULTIPLIER = 4 -- РјСѓР»СЊС‚РёРїР»РёРєР°С‚РѕСЂ РґР»СЏ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅРѕРіРѕ СЂР°Р·РјРµСЂР° СЃС‚РѕРїР°
-local numCandlesForStop = 163 -- РєРѕР»РІРѕ СЃРІРµС‡РµР№ РґР»СЏ СЂР°СЃС‡РµС‚Р° СЂР°Р·РјРµСЂР° СЃС‚РѕРїР°
+local CLIENT_CODE = "SPBFUT00LLD" -- код клиента
+local START_TIME = {hour=10, min=30} -- время начала поиска входа
+local END_TIME = {hour=18, min=00} -- время конца поиска входа
+local BUFFER = 100 -- спред/проскальзывание
+local STOP_MULTIPLIER = 4 -- мультипликатор для относительного размера стопа
+local numCandlesForStop = 163 -- колво свечей для расчета размера стопа
 
 ------------------------------------------------------------------------
 
-local ACCOUNT_BALANCE; -- Р±Р°Р»Р°РЅСЃ СЃС‡РµС‚Р° -- СЃС‡РёС‚С‹РІР°РµС‚СЃСЏ РёР· РљРІРёРєР° РїСЂРё Р·Р°РїСѓСЃРєРµ СЂРѕР±РѕС‚Р° (Р»РёРјРёС‚ РѕС‚РєСЂС‹С‚РёСЏ РїРѕР·РёС†РёР№ РёР· РћРіСЂР°РЅРёС‡РµРЅРёР№ РїРѕ РљР»РёРµРЅС‚СЃРєРёРј РЎС‡РµС‚Р°Рј)
-local GO; -- Р“.Рћ. РїСЂРѕРґР°РІС†Р° (Р±СѓРґРµС‚ СЃС‡РёС‚Р°РЅ РёР· РљРІРёРєР°)
-local relStopSize; -- РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ СЃС‚РѕРїР°
+local ACCOUNT_BALANCE; -- баланс счета -- считывается из Квика при запуске робота (лимит открытия позиций из Ограничений по Клиентским Счетам)
+local GO; -- Г.О. продавца (будет считан из Квика)
+local relStopSize; -- относительный размер стопа
 
--- СЃС‚Р°С‚СѓСЃС‹ РїРѕРёСЃРєР° С‚РѕС‡РєРё РІС…РѕРґР° (0 -- РЅРёС‡РµРіРѕ, 1 -- РЅР°Р№РґРµРЅ С„СЂР°РєС‚Р°Р» СѓРґРѕРІР» СѓСЃР»РѕРІРёСЋ Р°), 2 -- РЅР°Р№РґРµРЅР° СЃРІРµС‡Р° (СѓСЃР»РѕРІРёРµ Р±))
+-- статусы поиска точки входа (0 -- ничего, 1 -- найден фрактал удовл условию а), 2 -- найдена свеча (условие б))
 local b_state = 0
 local s_state = 0
 
-local greenf_idx, redf_idx; -- Р·РЅР°С‡РµРЅРёСЏ РїРѕСЃР»РµРґРЅРёС… РЅР°Р№РґРµРЅРЅС‹С… С„СЂР°РєС‚Р°Р»РѕРІ (РЅРµ РѕР±СЏР· СѓРґРѕРІР» СѓСЃР»)
-local greenf_dt, redf_dt; -- Р·РЅР°С‡РµРЅРёСЏ datetime РїРѕСЃР»РµРґРЅРёС… С„СЂР°РєС‚Р°Р»РѕРІ (РЅРµ РѕР±СЏР· СѓРґРѕРІР» СѓСЃР»)
+local greenf_idx, redf_idx; -- значения последних найденных фракталов (не обяз удовл усл)
+local greenf_dt, redf_dt; -- значения datetime последних фракталов (не обяз удовл усл)
 
--- Р·РЅР°С‡РµРЅРёСЏ РїРѕСЃР»РµРґРЅРёС… РЅР°Р№РґРµРЅРЅС‹С… С„СЂР°РєС‚Р°Р»РѕРІ, РµСЃР»Рё РѕРЅРё СѓРґРѕРІР» СѓСЃР»РѕРІРёСЋ Р°) (С„СЂР°РєС‚Р°Р» РЅРёР¶Рµ/РІС‹С€Рµ РІСЃРµС… СЃСЂРµРґРЅРёС…), РёРЅР°С‡Рµ 0
+-- значения последних найденных фракталов, если они удовл условию а) (фрактал ниже/выше всех средних), иначе 0
 local greenf_val = 0
 local redf_val = 0;
 
-local high, low; -- Р·РЅР°С‡РµРЅРёСЏ СЃРІРµС‡Рё РёР· СѓСЃР»РѕРІРёСЏ Р±) РєРѕС‚РѕСЂС‹Рµ РґРѕР»Р¶РЅС‹ Р±С‹С‚СЊ РїСЂРѕР±РёС‚С‹ СЃР»РµРґСѓСЋС‰РµР№ СЃРІРµС‡РѕР№
-local high_idx, low_idx; -- РЅРѕРјРµСЂР° СЌС‚РёС… СЃРІРµС‡РµР№
+local high, low; -- значения свечи из условия б) которые должны быть пробиты следующей свечой
+local high_idx, low_idx; -- номера этих свечей
 
-local last_idx; -- РЅРѕРјРµСЂ СЃРІРµС‡Рё РЅР° РїСЂРѕС€Р»РѕРј С‚РёРєРµ
+local last_idx; -- номер свечи на прошлом тике
 
 
--- С„СѓРЅРєС†РёСЏ РІС‹Р·С‹РІР°РµС‚СЃСЏ РєРІРёРєРѕРј РїСЂРё Р·Р°РїСѓСЃРєРµ СЂРѕР±РѕС‚Р°
+-- функция вызывается квиком при запуске робота
 
 function OnInit()
-    -- РїРѕСЃС‡РёС‚Р°РµРј РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ СЃС‚РѕРїР°
+    -- посчитаем относительный размер стопа
     relStopSize = getStopSize()
-    PrintDbgStr("РћС‚РЅ. СЂР°Р·РјРµСЂ СЃС‚РѕРїР°: " .. relStopSize)
+    PrintDbgStr("Отн. размер стопа: " .. relStopSize)
 
-    -- РѕРїСЂРµРґРµР»РёРј Р»РёРјРёС‚ РѕС‚РєСЂС‹С‚РёСЏ РїРѕР·РёС†РёР№
+    -- определим лимит открытия позиций
     for i = 0,getNumberOf("futures_client_limits") - 1 do
         local x = getItem("futures_client_limits", i)
         if x.trdaccid == ACCOUNT and x.limit_type == 0 then
             ACCOUNT_BALANCE = x.cbplplanned
-            PrintDbgStr("Р‘Р°Р»Р°РЅСЃ РЎС‡РµС‚Р°: "..ACCOUNT_BALANCE.. " -- " .. x.kgo )
+            PrintDbgStr("Баланс Счета: "..ACCOUNT_BALANCE.. " -- " .. x.kgo )
             break
         end
     end
 
-    -- СЃС‡РёС‚Р°РµРј Р“Рћ РїСЂРѕРґР°РІС†Р° РёР· РєРІРёРєР°
+    -- считаем ГО продавца из квика
     GO = getParamEx("SPBFUT", INSTRUMENT, "BUYDEPO").param_value
-    PrintDbgStr("Р“Рћ: ".. tostring(GO))
+    PrintDbgStr("ГО: ".. tostring(GO))
 
-    -- РёРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј data source
+    -- инициализируем data source
     DS = CreateDataSource("SPBFUT", INSTRUMENT, INTERVAL_M5)
     last_idx = DS:Size()
     --PrintDbgStr("DS Size: " .. last_idx)
 
-    -- РЅР°Р№РґРµРј РёРЅРґРµРєСЃС‹ Рё РІСЂРµРјСЏ РїРѕСЃР»РµРґРЅРёС… С„СЂР°РєС‚Р°Р»РѕРІ
+    -- найдем индексы и время последних фракталов
     searchFractals()
 
-    -- РїРѕРґРїРёС€РµРјСЃСЏ РЅР° РѕР±РЅРѕРІР»РµРЅРёРµ С†РµРЅС‹ INSTRUMENT (SiZ6)
+    -- подпишемся на обновление цены INSTRUMENT (SiZ6)
     DS:SetUpdateCallback(NewPrice)
 end
 
 
--- РїРѕРёСЃРє РїРѕСЃР»РµРґРЅРёС… С„СЂР°РєС‚Р°Р»РѕРІ + РїСЂРѕРІРµСЂРєР° СѓСЃР»РѕРІРёСЏ Р°)
+-- поиск последних фракталов + проверка условия а)
 function searchFractals()
     local N = getNumCandles("Fractal")
     local tbl, count, l = getCandlesByIndex("Fractal", 0, N-163, 163)
@@ -72,7 +72,7 @@ function searchFractals()
         if v.high > 0 then
             greenf_idx = N - 163 + k
             greenf_dt = v.datetime
-            -- РµСЃР»Рё РЅР°С€ Р·РµР»РµРЅС‹Р№ С„СЂР°РєС‚Р°Р» РІС‹С€Рµ СЃСЂРµРґРЅРёС… -- СЃРѕС…СЂР°РЅСЏРµРј РµРіРѕ
+            -- если наш зеленый фрактал выше средних -- сохраняем его
             if greenFractalMatch(v.high) then
                 greenf_val = v.high
                 b_state = 1
@@ -83,7 +83,7 @@ function searchFractals()
         if v.low > 0 then
             redf_idx = N - 163 + k
             redf_dt = v.datetime
-            -- РµСЃР»Рё РЅР°С€ РєСЂР°СЃРЅС‹Р№ С„СЂР°РєС‚Р°Р» РЅРёР¶Рµ СЃСЂРµРґРЅРёС… -- СЃРѕС…СЂР°РЅСЏРµРј РµРіРѕ
+            -- если наш красный фрактал ниже средних -- сохраняем его
             if redFractalMatch(v.low) then
                 redf_val = v.low
                 s_state = 1
@@ -94,13 +94,13 @@ function searchFractals()
     end
 
     PrintDbgStr(string.format(
-        "РќР°Р№РґРµРЅРЅС‹Рµ РїРѕСЃР»РµРґРЅРёРµ С„СЂР°РєС‚Р°Р»С‹: %s:%s, %s:%s",
+        "Найденные последние фракталы: %s:%s, %s:%s",
             greenf_dt.hour, greenf_dt.min,
             redf_dt.hour, redf_dt.min
         )
     )
     PrintDbgStr(string.format(
-        "РЎРѕСЃС‚РѕСЏРЅРёСЏ: Р·РµР»:%s, РєСЂР°СЃРЅ:%s",
+        "Состояния: зел:%s, красн:%s",
             b_state, s_state
         )
     )
@@ -108,12 +108,12 @@ end
 
 
 function greenFractalMatch(val)
-    -- РїСЂРѕРІРµСЂРєР° С‡С‚Рѕ СЌС‚Рѕ С„СЂР°РєС‚Р°Р» РёР· СЃРµРіРѕРґРЅСЏС€РЅРёС… СЃРІРµС‡РµР№
+    -- проверка что это фрактал из сегодняшних свечей
     if greenf_dt.hour == 10 and greenf_dt.min < 5 then
         return false
     end
 
-    -- РїРѕР»СѓС‡РёРј Р·РЅР°С‡РµРЅРёСЏ РёРЅРґРёРєР°С‚РѕСЂР° ThreeMOVie РІ РјРѕРјРµРЅС‚ Р·РµР»РµРЅРѕРіРѕ С„СЂР°РєС‚Р°Р»Р°
+    -- получим значения индикатора ThreeMOVie в момент зеленого фрактала
     local t0, count, l = getCandlesByIndex("3MA", 0, greenf_idx, 1)
     local t1, count, l = getCandlesByIndex("3MA", 1, greenf_idx, 1)
     local t2, count, l = getCandlesByIndex("3MA", 2, greenf_idx, 1)
@@ -130,12 +130,12 @@ end
 
 
 function redFractalMatch(val)
-    -- РїСЂРѕРІРµСЂРєР° С‡С‚Рѕ СЌС‚Рѕ С„СЂР°РєС‚Р°Р» РёР· СЃРµРіРѕРґРЅСЏС€РЅРёС… СЃРІРµС‡РµР№
+    -- проверка что это фрактал из сегодняшних свечей
     if redf_dt.hour == 10 and redf_dt.min < 5 then
         return false
     end
 
-    -- РїРѕР»СѓС‡РёРј Р·РЅР°С‡РµРЅРёСЏ РёРЅРґРёРєР°С‚РѕСЂР° ThreeMOVie РІ РјРѕРјРµРЅС‚ РєСЂР°СЃРЅРѕРіРѕ С„СЂР°РєС‚Р°Р»Р°
+    -- получим значения индикатора ThreeMOVie в момент красного фрактала
     local t0, count, l = getCandlesByIndex("3MA", 0, redf_idx, 1)
     local t1, count, l = getCandlesByIndex("3MA", 1, redf_idx, 1)
     local t2, count, l = getCandlesByIndex("3MA", 2, redf_idx, 1)
@@ -152,72 +152,72 @@ function redFractalMatch(val)
 end
 
 
--- С„СѓРЅРєС†РёСЏ СЂР°СЃСЃС‡РёС‚С‹РІР°РµС‚ РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ СЃС‚РѕРїР°
+-- функция рассчитывает относительный размер стопа
 function getStopSize()
     local N = getNumCandles("Price")
-    local t, count, l = getCandlesByIndex("Price", 0, N-numCandlesForStop, numCandlesForStop) -- РїРѕР»СѓС‡РёС‚СЊ РїРѕСЃР»РµРґРЅРёРµ 163 СЃРІРµС‡Рё
+    local t, count, l = getCandlesByIndex("Price", 0, N-numCandlesForStop, numCandlesForStop) -- получить последние 163 свечи
 
     local sum = 0
     for i, row in ipairs(t) do
-        sum = sum + (row.high - row.low) / row.low  -- РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹Р№ СЂР°Р·РјРµСЂ СЃРІРµС‡Рё
+        sum = sum + (row.high - row.low) / row.low  -- относительный размер свечи
     end
 
     PrintDbgStr(sum)
     PrintDbgStr(count)
 
-    return STOP_MULTIPLIER * sum / count -- СЃСѓРјРјР° РѕС‚РЅРѕСЃРёС‚РµР»СЊРЅС‹С… СЂР°Р·РјРµСЂРѕРІ СЃРІРµС‡Рё РґРµР»РµРЅРЅР°СЏ РЅР° РєРѕР»РёС‡РµСЃС‚РІРѕ СЃРІРµС‡РµР№
+    return STOP_MULTIPLIER * sum / count -- сумма относительных размеров свечи деленная на количество свечей
 end
 
 
 function searchNewFractals(i)
-    -- РІС‹Р·С‹РІР°РµС‚СЃСЏ РµСЃР»Рё РЅР°Р№РґРµРЅР° РЅРѕРІР°СЏ СЃРІРµС‡Р°
-    -- РїСЂРѕРІРµСЂСЏРµРј С‚РѕР»СЊРєРѕ СЃРІРµС‡Сѓ РЅРѕРјРµСЂ i-3 (РґР»СЏ С„СЂР°РєС‚Р°Р»Р° РЅСѓР¶РЅРѕ 2 РїРѕСЃР»РµРґСѓСЋС‰РёРµ Р·Р°РІРµСЂС€РµРЅРЅС‹Рµ СЃРІРµС‡Рё)
+    -- вызывается если найдена новая свеча
+    -- проверяем только свечу номер i-3 (для фрактала нужно 2 последующие завершенные свечи)
 
     local tbl, count, l = getCandlesByIndex("Fractal", 0, i-3, 1)
     v = tbl[0]
-    PrintDbgStr("РџСЂРѕРІРµСЂСЏРµРј С„СЂР°РєС‚Р°Р» " .. v.open .. " " .. v.high .. " " .. v.low .. " ".. v.close .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
+    PrintDbgStr("Проверяем фрактал " .. v.open .. " " .. v.high .. " " .. v.low .. " ".. v.close .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
 
     if i > greenf_idx and v.high > 0 then
-        -- Р·Р°РїРѕРјРёРЅР°РµРј С„СЂР°РєС‚Р°Р»
+        -- запоминаем фрактал
         greenf_idx = i-3
         greenf_dt = v.datetime
-        PrintDbgStr("РќРѕРІС‹Р№ Р·РµР»РµРЅС‹Р№ " .. v.high .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
+        PrintDbgStr("Новый зеленый " .. v.high .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
 
         if b_state ~= 0 then
-            -- СЃР±СЂР°СЃС‹РІР°РµРј РІСЃРµ СЃРѕСЃС‚РѕСЏРЅРёСЏ
+            -- сбрасываем все состояния
             b_state = 0
             high = 0
             high_idx = 0
-            PrintDbgStr("РЎР±СЂРѕСЃ Р·РµР»РµРЅРѕРіРѕ!")
+            PrintDbgStr("Сброс зеленого!")
         end
 
-        -- РµСЃР»Рё РЅР°С€ Р·РµР»РµРЅС‹Р№ С„СЂР°РєС‚Р°Р» РІС‹С€Рµ СЃСЂРµРґРЅРёС… -- СЃРѕС…СЂР°РЅСЏРµРј РµРіРѕ
+        -- если наш зеленый фрактал выше средних -- сохраняем его
         if greenFractalMatch(v.high) then
             greenf_val = v.high
             b_state = 1
-            PrintDbgStr("Р¤СЂР°РєС‚Р°Р» РїРѕРґС…РѕРґРёС‚!")
+            PrintDbgStr("Фрактал подходит!")
         end
     end
 
     if i > redf_idx and v.low > 0 then
-        -- Р·Р°РїРѕРјРёРЅР°РµРј С„СЂР°РєС‚Р°Р»
+        -- запоминаем фрактал
         redf_idx = i-3
         redf_dt = v.datetime
-        PrintDbgStr("РќРѕРІС‹Р№ РєСЂР°СЃРЅС‹Р№ " .. v.low .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
+        PrintDbgStr("Новый красный " .. v.low .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
 
         if s_state ~= 0 then
-            -- СЃР±СЂР°СЃС‹РІР°РµРј РІСЃРµ СЃРѕСЃС‚РѕСЏРЅРёСЏ
+            -- сбрасываем все состояния
             s_state = 0
             low = 0
             low_idx = 0
-            PrintDbgStr("РЎР±СЂРѕСЃ РєСЂР°СЃРЅРѕРіРѕ!")
+            PrintDbgStr("Сброс красного!")
         end
 
-        -- РµСЃР»Рё РЅР°С€ РєСЂР°СЃРЅС‹Р№ С„СЂР°РєС‚Р°Р» РЅРёР¶Рµ СЃСЂРµРґРЅРёС… -- СЃРѕС…СЂР°РЅСЏРµРј РµРіРѕ
+        -- если наш красный фрактал ниже средних -- сохраняем его
         if redFractalMatch(v.low) then
             redf_val = v.low
             s_state = 1
-            PrintDbgStr("Р¤СЂР°РєС‚Р°Р» РїРѕРґС…РѕРґРёС‚!")
+            PrintDbgStr("Фрактал подходит!")
         end
     end
 
@@ -229,13 +229,13 @@ function getQuantity()
 end
 
 function doBuy(curPrice)
-    PrintDbgStr("РџРћРљРЈРџРђР•Рњ!")
+    PrintDbgStr("ПОКУПАЕМ!")
 
     local q = getQuantity()
-    local price = curPrice + BUFFER -- С†РµРЅР° Р·Р°СЏРІРєРё РЅР° РїРѕРєСѓРїРєСѓ
-    local stop_price = math.floor(price - price * relStopSize) -- СѓСЂРѕРІРµРЅСЊ СЃС‚РѕРїР°
+    local price = curPrice + BUFFER -- цена заявки на покупку
+    local stop_price = math.floor(price - price * relStopSize) -- уровень стопа
 
-    -- Р·Р°СЏРІРєР°
+    -- заявка
     local order = {
         ["TRANS_ID"]    = "1",
         ["ACTION"]      = "NEW_ORDER",
@@ -246,10 +246,10 @@ function doBuy(curPrice)
         ["OPERATION"]   = "B",
         ["QUANTITY"]    = string.format('%.0f', q),
         ["PRICE"]       = string.format('%.0f', price)
-        --["TYPE"]        = L  -- С‚Р°Рє Р±С‹Р»Рѕ РІ РїСЂРѕС€Р»РѕРј СЂРѕР±РѕС‚Рµ, РЅРµ Р·РЅР°СЋ С‡С‚Рѕ СЌС‚Рѕ Р·РЅР°С‡РёС‚
+        --["TYPE"]        = L  -- так было в прошлом роботе, не знаю что это значит
     }
 
-    -- СЃС‚РѕРї-Р·Р°СЏРІРєР°
+    -- стоп-заявка
     local stop = {
         ["TRANS_ID"]    = "2",
         ["ACTION"]      = "NEW_STOP_ORDER",
@@ -269,13 +269,13 @@ end
 
 
 function doSell(curPrice)
-    PrintDbgStr("РџР РћР”РђР•Рњ!")
+    PrintDbgStr("ПРОДАЕМ!")
 
     local q = getQuantity()
-    local price = curPrice - BUFFER -- С†РµРЅР° Р·Р°СЏРІРєРё РЅР° РїСЂРѕРґР°Р¶Сѓ
-    local stop_price = math.floor(price + price * relStopSize) -- СѓСЂРѕРІРµРЅСЊ СЃС‚РѕРїР°
+    local price = curPrice - BUFFER -- цена заявки на продажу
+    local stop_price = math.floor(price + price * relStopSize) -- уровень стопа
 
-    -- Р·Р°СЏРІРєР°
+    -- заявка
     local order = {
         ["TRANS_ID"]    = "1",
         ["ACTION"]      = "NEW_ORDER",
@@ -286,10 +286,10 @@ function doSell(curPrice)
         ["OPERATION"]   = "S",
         ["QUANTITY"]    = string.format('%.0f', q),
         ["PRICE"]       = string.format('%.0f', price)
-        --["TYPE"]        = L  -- С‚Р°Рє Р±С‹Р»Рѕ РІ РїСЂРѕС€Р»РѕРј СЂРѕР±РѕС‚Рµ, РЅРµ Р·РЅР°СЋ С‡С‚Рѕ СЌС‚Рѕ Р·РЅР°С‡РёС‚
+        --["TYPE"]        = L  -- так было в прошлом роботе, не знаю что это значит
     }
 
-    -- СЃС‚РѕРї-Р·Р°СЏРІРєР°
+    -- стоп-заявка
     local stop = {
         ["TRANS_ID"]    = "2",
         ["ACTION"]      = "NEW_STOP_ORDER",
@@ -309,27 +309,27 @@ end
 
 
 function NewPrice(i)
-    -- С„СѓРЅРєС†РёСЏ РІС‹Р·С‹РІР°РµС‚СЃСЏ РїСЂРё РєР°Р¶РґРѕРј РѕР±РЅРѕРІР»РµРЅРёРё С†РµРЅС‹
+    -- функция вызывается при каждом обновлении цены
     local curPrice = DS:C(i)
 
-    -- РЅРѕРІР°СЏ СЃРІРµС‡Р° -- РїСЂРѕРёР·РІРµСЃС‚Рё РЅРµРѕР±С…РѕРґРёРјС‹Рµ РґРµР№СЃС‚РІРёСЏ
+    -- новая свеча -- произвести необходимые действия
     if last_idx < i then
-        PrintDbgStr("РќРѕРІР°СЏ СЃРІРµС‡Р° в„–".. i .. ", СЃРѕСЃС‚РѕСЏРЅРёСЏ: " .. b_state .. " " .. s_state)
+        PrintDbgStr("Новая свеча №".. i .. ", состояния: " .. b_state .. " " .. s_state)
 
-        -- РµСЃР»Рё Р±С‹Р»Рѕ СЃРѕСЃС‚РѕСЏРЅРёРµ 2 -- СЃР±СЂР°СЃС‹РІР°РµРј РЅР° 0 (РѕР·РЅР°С‡Р°РµС‚ С‡С‚Рѕ РјС‹ РЅРµ РЅР°С€Р»Рё РЅР° РїСЂРѕС€Р»РѕР№ СЃРІРµС‡Рµ РїСЂРѕР±РѕСЏ РјР°РєСЃ/РјРёРЅ РїСЂРµРґС‹РґСѓС‰РµР№ СЃРІРµС‡Рё)
+        -- если было состояние 2 -- сбрасываем на 0 (означает что мы не нашли на прошлой свече пробоя макс/мин предыдущей свечи)
         if b_state == 2 then
-            PrintDbgStr("РЎР±СЂРѕСЃ Р·РµР»РµРЅРѕРіРѕ СЃС‚Р°С‚СѓСЃР°")
+            PrintDbgStr("Сброс зеленого статуса")
             b_state = 0
         end
         if s_state == 2 then
-            PrintDbgStr("РЎР±СЂРѕСЃ РєСЂР°СЃРЅРѕРіРѕ СЃС‚Р°С‚СѓСЃР°")
+            PrintDbgStr("Сброс красного статуса")
             s_state = 0
         end
 
-        -- РѕР±РЅРѕРІРёС‚СЊ Р·РЅР°С‡РµРЅРёСЏ РЅРѕРІС‹С… С„СЂР°РєС‚Р°Р»РѕРІ. Р•СЃР»Рё РЅРѕРІС‹Рµ -- СЃР±СЂРѕСЃРёС‚СЊ СЃС‚Р°С‚СѓСЃС‹
+        -- обновить значения новых фракталов. Если новые -- сбросить статусы
         searchNewFractals(i)
 
-        -- РµСЃР»Рё РјС‹ РІ СЃС‚Р°С‚СѓСЃРµ 1 -- РїСЂРѕРІРµСЂРёС‚СЊ РїСЂРѕС€Р»СѓСЋ СЃРІРµС‡Сѓ РЅР° СѓРґРѕРІР» СѓСЃР»РѕРІРёСЋ Р±)
+        -- если мы в статусе 1 -- проверить прошлую свечу на удовл условию б)
         if b_state == 1 or s_state == 1 then
             local tbl, count, l = getCandlesByIndex("Price", 0, i-1, 1)
             v = tbl[0]
@@ -337,7 +337,7 @@ function NewPrice(i)
                 if v.close > greenf_val then
                     b_state = 2
                     high = v.high
-                    PrintDbgStr("РЎРѕСЃС‚РѕСЏРЅРёРµ 2 РґР»СЏ Р·РµР»РµРЅРѕРіРѕ С„СЂР°РєС‚Р°Р»Р°!")
+                    PrintDbgStr("Состояние 2 для зеленого фрактала!")
                 end
             end
 
@@ -345,7 +345,7 @@ function NewPrice(i)
                 if v.close < redf_val then
                     b_state = 2
                     low = v.low
-                    PrintDbgStr("РЎРѕСЃС‚РѕСЏРЅРёРµ 2 РґР»СЏ РєСЂР°СЃРЅРѕРіРѕ С„СЂР°РєС‚Р°Р»Р°!")
+                    PrintDbgStr("Состояние 2 для красного фрактала!")
                 end
             end
         end
@@ -353,21 +353,21 @@ function NewPrice(i)
         last_idx = i
     end
 
-    -- РµСЃР»Рё РјС‹ РІ СЃС‚Р°С‚СѓСЃРµ 2 -- РїСЂРѕРІРµСЂСЏРµРј С‚РµРєСѓС‰СѓСЋ С†РµРЅСѓ РЅР° СѓСЃР»РѕРІРёРµ РІ)
+    -- если мы в статусе 2 -- проверяем текущую цену на условие в)
     if b_state == 2 then
         if curPrice > high then
-            -- РїРѕРєСѓРїР°РµРј
+            -- покупаем
             doBuy(curPrice)
-            -- РєРѕРЅРµС†
+            -- конец
             Run = false
             return
         end
     end
 
     if s_state == 2 then
-        -- РїСЂРѕРґР°РµРј
+        -- продаем
         doSell(curPrice)
-        -- РєРѕРЅРµС†
+        -- конец
         Run = false
         return
     end
@@ -377,12 +377,12 @@ end
 
 Run = true
 
--- РѕСЃРЅРѕРІРЅР°СЏ С„СѓРЅРєС†РёСЏ (РЅСѓР¶РЅР° С‡С‚РѕР±С‹ СЂРѕР±РѕС‚ СЂР°Р±РѕС‚Р°Р»)
+-- основная функция (нужна чтобы робот работал)
 function main()
     while Run do
         sleep(200)
     end
-    PrintDbgStr("Р—Р°РІРµСЂС€РµРЅРёРµ СЂР°Р±РѕС‚С‹")
+    PrintDbgStr("Завершение работы")
 end
 
 function OnStop()

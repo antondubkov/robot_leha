@@ -1,35 +1,35 @@
 local INSTRUMENT = "SiZ6"
 local ACCOUNT = "SPBFUT00LLD"
-local CLIENT_CODE = "SPBFUT00LLD" -- РєРѕРґ РєР»РёРµРЅС‚Р°
+local CLIENT_CODE = "SPBFUT00LLD" -- код клиента
 
-local CLOSE_TIME = {hour=15, min=20} -- РІСЂРµРјВ¤ Р·Р°РєСЂС‹С‚РёВ¤
-local QUANTITY = 1; -- РєРѕР»РёС‡РµСЃС‚РІРѕ РґР»В¤ Р·Р°РєСЂС‹С‚РёВ¤
-local OPERATION = "B"; -- "B" -- РєСѓРїРёС‚СЊ, "S" -- РїСЂРѕРґР°С‚СЊ
+local CLOSE_TIME = {hour=15, min=20} -- врем¤ закрыти¤
+local QUANTITY = 1; -- количество дл¤ закрыти¤
+local OPERATION = "B"; -- "B" -- купить, "S" -- продать
 
-local BUFFER = 100 -- СЃРїСЂРµРґ/РїСЂРѕСЃРєР°Р»СЊР·С‹РІР°РЅРёРµ
+local BUFFER = 100 -- спред/проскальзывание
 
 
--- РІС‹Р·С‹РІР°РµС‚СЃВ¤ РєРІРёРєРѕРј РїСЂРё Р·Р°РїСѓСЃРєРµ СЂРѕР±РѕС‚Р°
+-- вызываетс¤ квиком при запуске робота
 function OnInit()
-    -- РёРЅРёС†РёР°Р»РёР·РёСЂСѓРµРј data source
+    -- инициализируем data source
     DS = CreateDataSource("SPBFUT", INSTRUMENT, INTERVAL_M5)
-    -- РїРѕРґРїРёС€РµРјСЃВ¤ РЅР° РѕР±РЅРѕРІР»РµРЅРёРµ С†РµРЅС‹ INSTRUMENT (SiZ6)
+    -- подпишемс¤ на обновление цены INSTRUMENT (SiZ6)
     DS:SetUpdateCallback(NewPrice)
-    PrintDbgStr("вЂ”РєСЂРёРїС‚ Р·Р°РєСЂС‹С‚РёВ¤ Р·Р°РїСѓС‰РµРЅ! ".. OPERATION .. " " .. tostring(QUANTITY) .. " РІ " .. CLOSE_TIME.hour .. ":" .. CLOSE_TIME.min)
+    PrintDbgStr("—крипт закрыти¤ запущен! ".. OPERATION .. " " .. tostring(QUANTITY) .. " в " .. CLOSE_TIME.hour .. ":" .. CLOSE_TIME.min)
 end
 
 
 
 function doClose(curPrice)
-    PrintDbgStr("В«Р°РєСЂС‹РІР°РµРјСЃВ¤!")
+    PrintDbgStr("«акрываемс¤!")
 
-    local price; -- С†РµРЅР° Р·Р°В¤РІРєРё
+    local price; -- цена за¤вки
     if OPERATION == "B" then
-        price = curPrice + BUFFER -- С†РµРЅР° Р·Р°В¤РІРєРё РЅР° РїРѕРєСѓРїРєСѓ
+        price = curPrice + BUFFER -- цена за¤вки на покупку
     else
-        price = curPrice - BUFFER -- С†РµРЅР° Р·Р°В¤РІРєРё РЅР° РїСЂРѕРґР°Р¶Сѓ
+        price = curPrice - BUFFER -- цена за¤вки на продажу
     end
-    -- Р·Р°В¤РІРєР°
+    -- за¤вка
     local order = {
         ["TRANS_ID"]    = "1",
         ["ACTION"]      = "NEW_ORDER",
@@ -45,20 +45,20 @@ function doClose(curPrice)
 
 end
 
-function NewPrice(i)  -- С„СѓРЅРєС†РёВ¤ РІС‹Р·С‹РІР°РµС‚СЃВ¤ РїСЂРё РєР°Р¶РґРѕРј РѕР±РЅРѕРІР»РµРЅРёРё С†РµРЅС‹
+function NewPrice(i)  -- функци¤ вызываетс¤ при каждом обновлении цены
     local curPrice = DS:C(i)
     local dt = DS:T(i)
     if dt.hour >= CLOSE_TIME.hour and dt.min >= CLOSE_TIME.min then
-        PrintDbgStr("В¬вЂ“в‰€С›СЏ В«СВ вЂ“СџвЂњВ»СЏ С•вЂ“В»РЋР‹Сњ!")
+        PrintDbgStr("¬–?ћя «ј –џ“»я ѕ–»ЎЋќ!")
         doClose(curPrice)
-        Run = false -- Р·Р°РІРµСЂС€РµРЅРёРµ СЂР°Р±РѕС‚С‹!!!
+        Run = false -- завершение работы!!!
     end
 end
 
 
 Run = true
 
--- РѕСЃРЅРѕРІРЅР°В¤ С„СѓРЅРєС†РёВ¤ (РЅСѓР¶РЅР° С‡С‚РѕР±С‹ СЂРѕР±РѕС‚ СЂР°Р±РѕС‚Р°Р»)
+-- основна¤ функци¤ (нужна чтобы робот работал)
 function main()
     while Run do
         sleep(200)
