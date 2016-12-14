@@ -1,11 +1,4 @@
-local INSTRUMENT = "SiZ6"
-local ACCOUNT = "SPBFUT00LLD"
-local CLIENT_CODE = "SPBFUT00LLD" -- код клиента
-local START_TIME = {hour=10, min=30} -- время начиная с которого учитываются фракталы
-local END_TIME = {hour=10, min=55} -- время конца поиска входа (робот завершается)
-local BUFFER = 100 -- спред/проскальзывание
-local STOP_MULTIPLIER = 4 -- мультипликатор для относительного размера стопа
-local numCandlesForStop = 163 -- колво свечей для расчета размера стопа
+require "settings"
 
 ------------------------------------------------------------------------
 
