@@ -338,7 +338,7 @@ function NewPrice(i)
 
         -- проверка END_TIME
         local dt = DS:T(i) -- время новой свечи
-        if dt.hour >= END_TIME.hour and dt.min >= END_TIME.min then
+        if dt.hour > END_TIME.hour or (dt.hour == END_TIME.hour and dt.min >= END_TIME.min) then
             PrintDbgStr("END_TIME наступило! Завершение работы...")
             Run = false
             return
