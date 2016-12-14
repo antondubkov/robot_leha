@@ -12,6 +12,7 @@ local numCandlesForStop = 163 -- колво свечей для расчета размера стопа
 local ACCOUNT_BALANCE; -- баланс счета -- считывается из Квика при запуске робота (лимит открытия позиций из Ограничений по Клиентским Счетам)
 local GO; -- Г.О. продавца (будет считан из Квика)
 local relStopSize; -- относительный размер стопа
+local trade_date = {}
 
 -- статусы поиска точки входа (0 -- ничего, 1 -- найден фрактал удовл условию а), 2 -- найдена свеча (условие б))
 local b_state = 0
@@ -46,6 +47,15 @@ function OnInit()
             break
         end
     end
+
+    -- сохраняем текущую торговую дату (чтобы игнорировать вчерашние фракталы)
+    local TRADEDATE = getInfoParam("TRADEDATE")
+    trade_date.day, trade_date.month, trade_date.year = string.match(TRADEDATE, "(%d*).(%d*).(%d*)")
+    trade_date.day  = tonumber(trade_date.day)
+    trade_date.month  = tonumber(trade_date.month)
+    trade_date.year  = tonumber(trade_date.year)
+
+    PrintDbgStr("Торговая дата: " ..trade_date.day.."."..trade_date.month.."."..trade_date.year )
 
     -- считаем ГО продавца из квика
     GO = getParamEx("SPBFUT", INSTRUMENT, "BUYDEPO").param_value
@@ -109,7 +119,7 @@ end
 
 function greenFractalMatch(val)
     -- проверка что это фрактал учитывается
-    if not (greenf_dt.hour >= START_TIME.hour and greenf_dt.min >= START_TIME.min) then
+    if not (greenf_dt.day >= trade_date.day and (greenf_dt.hour > START_TIME.hour or (greenf_dt.hour == START_TIME.hour and greenf_dt.min >= START_TIME.min))) then
         return false
     end
 
@@ -132,7 +142,7 @@ end
 
 function redFractalMatch(val)
     -- проверка что это фрактал из сегодняшних свечей
-    if not (redf_dt.hour >= START_TIME.hour and redf_dt.min >= START_TIME.min) then
+    if not (redf_dt.day >= trade_date.day and (redf_dt.hour > START_TIME.hour or (redf_dt.hour == START_TIME.hour and redf_dt.min >= START_TIME.min))) then
         return false
     end
 
