@@ -383,7 +383,7 @@ function NewPrice(i)
     if b_state == 2 then
         if curPrice > high then
             -- покупаем
-            doBuy(curPrice)
+            doBuy(high+1)
             -- конец
             Run = false
             return
@@ -391,10 +391,11 @@ function NewPrice(i)
     end
 
     if s_state == 2 then
-        -- продаем
-        doSell(curPrice)
-        -- конец
-        Run = false
+        if curPrice < low then
+            -- продаем
+            doSell(low-1)
+            -- конец
+            Run = false
         return
     end
 
