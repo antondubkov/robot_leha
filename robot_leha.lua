@@ -396,7 +396,8 @@ function NewPrice(i)
             doSell(low-1)
             -- конец
             Run = false
-        return
+            return
+        end
     end
 
 end
