@@ -367,7 +367,7 @@ function NewPrice(i)
 
             if s_state == 1 then
                 if v.close < redf_val then
-                    b_state = 2
+                    s_state = 2
                     low = v.low
                     PrintDbgStr("Состояние 2 для красного фрактала!")
                 end
@@ -379,7 +379,7 @@ function NewPrice(i)
     if b_state == 2 then
         if curPrice > high then
             -- покупаем
-            doBuy(high+1)
+            doBuy(high)
             -- конец
             Run = false
             return
@@ -389,7 +389,7 @@ function NewPrice(i)
     if s_state == 2 then
         if curPrice < low then
             -- продаем
-            doSell(low-1)
+            doSell(low)
             -- конец
             Run = false
             return
