@@ -70,7 +70,7 @@ end
 -- поиск последних фракталов при старте скрипта + проверка услови€ а)
 function searchFractals()
     local N = getNumCandles("Fractal")
-    local tbl, count, l = getCandlesByIndex("Fractal", 0, N-163, 163)
+    local tbl, count, l = getCandlesByIndex("Fractal", 0, N-163, 160)
     for k, v in pairs(tbl) do
         if v.high > 0 then
             greenf_idx = N - 163 + k
@@ -176,9 +176,9 @@ end
 
 function searchNewFractals(i)
     -- вызываетс€ если найдена нова€ свеча
-    -- провер€ем только свечу номер i-3 (дл€ фрактала нужно 2 последующие завершенные свечи)
+    -- провер€ем только свечу номер i-4 (дл€ фрактала нужно 2 последующие завершенные свечи)
 
-    local tbl, count, l = getCandlesByIndex("Fractal", 0, i-3, 1)
+    local tbl, count, l = getCandlesByIndex("Fractal", 0, i-4, 1)
     v = tbl[0]
     PrintDbgStr("ѕровер€ем фрактал " .. v.open .. " " .. v.high .. " " .. v.low .. " ".. v.close .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
 
@@ -268,6 +268,8 @@ function doBuy(curPrice)
         ["EXPIRY_DATE"] = "TODAY"
     }
 
+    --PrintDbgStr(tostring(stop))
+
     sendTransaction(order)
     sendTransaction(stop)
 end
@@ -308,6 +310,7 @@ function doSell(curPrice)
         ["EXPIRY_DATE"] = "TODAY"
     }
 
+    --PrintDbgStr(tostring(stop))
     sendTransaction(order)
     sendTransaction(stop)
 end
@@ -322,15 +325,15 @@ function NewPrice(i)
     end
 
     local curPrice = DS:C(i) -- цена
+    local dt = DS:T(i) -- врем€ новой свечи
 
     -- нова€ свеча -- произвести необходимые действи€
     if last_idx < i then
-        PrintDbgStr("Ќова€ свеча є".. i .. ", состо€ни€: " .. b_state .. " " .. s_state)
+        PrintDbgStr("Ќачало новой свечи, врем€ ".. dt.hour ..":"..dt.min.. ", состо€ни€: " .. b_state .. " " .. s_state)
 
         last_idx = i
 
         -- проверка END_TIME
-        local dt = DS:T(i) -- врем€ новой свечи
         if dt.hour > END_TIME.hour or (dt.hour == END_TIME.hour and dt.min >= END_TIME.min) then
             PrintDbgStr("END_TIME наступило! «авершение работы...")
             Run = false
