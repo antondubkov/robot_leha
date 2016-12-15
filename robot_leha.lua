@@ -234,7 +234,7 @@ function getQuantity()
 end
 
 function doBuy(curPrice)
-    PrintDbgStr("ПОКУПАЕМ!")
+    PrintDbgStr("ПОКУПАЕМ! high = "..curPrice)
 
     local q = getQuantity()
     local price = curPrice + BUFFER -- цена заявки на покупку
@@ -276,7 +276,7 @@ end
 
 
 function doSell(curPrice)
-    PrintDbgStr("ПРОДАЕМ!")
+    PrintDbgStr("ПРОДАЕМ! low = " .. curPrice)
 
     local q = getQuantity()
     local price = curPrice - BUFFER -- цена заявки на продажу
