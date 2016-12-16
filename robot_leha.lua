@@ -31,28 +31,16 @@ function OnInit()
     relStopSize = getStopSize()
     PrintDbgStr("Отн. размер стопа: " .. relStopSize)
 
-    -- определим лимит открытия позиций
-    for i = 0,getNumberOf("futures_client_limits") - 1 do
-        local x = getItem("futures_client_limits", i)
-        if x.trdaccid == ACCOUNT and x.limit_type == 0 then
-            ACCOUNT_BALANCE = x.cbplplanned
-            PrintDbgStr("Баланс Счета: "..ACCOUNT_BALANCE)
-            break
-        end
-    end
-
     -- сохраняем текущую торговую дату (чтобы игнорировать вчерашние фракталы)
-    local TRADEDATE = getInfoParam("TRADEDATE")
-    trade_date.day, trade_date.month, trade_date.year = string.match(TRADEDATE, "(%d*).(%d*).(%d*)")
-    trade_date.day  = tonumber(trade_date.day)
-    trade_date.month  = tonumber(trade_date.month)
-    trade_date.year  = tonumber(trade_date.year)
+    --local TRADEDATE = getInfoParam("TRADEDATE")
+    --trade_date.day, trade_date.month, trade_date.year = string.match(TRADEDATE, "(%d*).(%d*).(%d*)")
+    --trade_date.day  = tonumber(trade_date.day)
+    --trade_date.month  = tonumber(trade_date.month)
+    --trade_date.year  = tonumber(trade_date.year)
+
+    trade_date = os.date("*t", os.time())
 
     PrintDbgStr("Торговая дата: " ..trade_date.day.."."..trade_date.month.."."..trade_date.year )
-
-    -- считаем ГО продавца из квика
-    GO = getParamEx("SPBFUT", INSTRUMENT, "BUYDEPO").param_value
-    PrintDbgStr("ГО: ".. tostring(GO))
 
     -- инициализируем data source
     DS = CreateDataSource("SPBFUT", INSTRUMENT, INTERVAL_M5)
@@ -167,9 +155,6 @@ function getStopSize()
         sum = sum + (row.high - row.low) / row.low  -- относительный размер свечи
     end
 
-    PrintDbgStr(sum)
-    PrintDbgStr(count)
-
     return STOP_MULTIPLIER * sum / count -- сумма относительных размеров свечи деленная на количество свечей
 end
 
@@ -230,6 +215,20 @@ end
 
 
 function getQuantity()
+    -- определим лимит открытия позиций
+    for i = 0,getNumberOf("futures_client_limits") - 1 do
+        local x = getItem("futures_client_limits", i)
+        if x.trdaccid == ACCOUNT and x.limit_type == 0 then
+            ACCOUNT_BALANCE = x.cbplplanned
+            PrintDbgStr("Баланс Счета: "..ACCOUNT_BALANCE)
+            break
+        end
+    end
+
+    -- считаем ГО продавца из квика
+    GO = getParamEx("SPBFUT", INSTRUMENT, "BUYDEPO").param_value
+    PrintDbgStr("ГО: ".. tostring(GO))
+
     return math.floor(ACCOUNT_BALANCE / GO)
 end
 
@@ -355,7 +354,7 @@ function NewPrice(i)
 
         -- если мы в статусе 1 -- проверить прошлую свечу на удовл условию б)
         if b_state == 1 or s_state == 1 then
-            local tbl, count, l = getCandlesByIndex("Price", 0, i-1, 1)
+            local tbl, count, l = getCandlesByIndex("Price", 0, i-2, 1)
             v = tbl[0]
             if b_state == 1 then
                 if v.close > greenf_val then
