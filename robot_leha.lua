@@ -4,7 +4,6 @@ require "settings"
 
 local ACCOUNT_BALANCE; -- баланс счета -- считывается из Квика при запуске робота (лимит открытия позиций из Ограничений по Клиентским Счетам)
 local GO; -- Г.О. продавца (будет считан из Квика)
-local relStopSize; -- относительный размер стопа
 local trade_date = {}
 
 -- статусы поиска точки входа (0 -- ничего, 1 -- найден фрактал удовл условию а), 2 -- найдена свеча (условие б))
@@ -27,16 +26,6 @@ local last_idx; -- номер свечи на прошлом тике
 -- функция вызывается квиком при запуске робота
 
 function OnInit()
-    -- посчитаем относительный размер стопа
-    relStopSize = getStopSize()
-    PrintDbgStr("Отн. размер стопа: " .. relStopSize)
-
-    -- сохраняем текущую торговую дату (чтобы игнорировать вчерашние фракталы)
-    --local TRADEDATE = getInfoParam("TRADEDATE")
-    --trade_date.day, trade_date.month, trade_date.year = string.match(TRADEDATE, "(%d*).(%d*).(%d*)")
-    --trade_date.day  = tonumber(trade_date.day)
-    --trade_date.month  = tonumber(trade_date.month)
-    --trade_date.year  = tonumber(trade_date.year)
 
     trade_date = os.date("*t", os.time())
 
@@ -214,7 +203,7 @@ function searchNewFractals(i)
 end
 
 
-function getQuantity()
+function getQuantity(operation, price)
     -- определим лимит открытия позиций
     for i = 0,getNumberOf("futures_client_limits") - 1 do
         local x = getItem("futures_client_limits", i)
@@ -225,18 +214,46 @@ function getQuantity()
         end
     end
 
-    -- считаем ГО продавца из квика
-    GO = getParamEx("SPBFUT", INSTRUMENT, "BUYDEPO").param_value
-    PrintDbgStr("ГО: ".. tostring(GO))
+    -- считаем БГО продавца из квика
+    local BGO = tonumber(getParamEx("SPBFUT", INSTRUMENT, "BUYDEPO").param_value)
+    PrintDbgStr("БГО: ".. tostring(BGO))
+
+    local PREVPRICE = tonumber(getParamEx("SPBFUT", INSTRUMENT, "PREVPRICE").param_value) -- цена закрытия
+    local STEPPRICE = tonumber(getParamEx("SPBFUT", INSTRUMENT, "STEPPRICE").param_value) -- стоимость шага цены
+    local SEC_PRICE_STEP = tonumber(getParamEx("SPBFUT", INSTRUMENT, "SEC_PRICE_STEP").param_value) -- шаг цены
+
+    PrintDbgStr("ДАННЫЕ: "..tostring(PREVPRICE).." ".. tostring(STEPPRICE) .." " ..tostring(SEC_PRICE_STEP))
+
+    local GO = BGO;
+
+    -- Покупка, если цена заявки больше цены закрытия
+    -- ГО = (БГО + (Цена заявки - цена закрытия)) * (Стоимость шага цены/Шаг цены).
+    if operation == "B" and price > PREVPRICE then
+       GO = (BGO + (price - PREVPRICE)) * (STEPPRICE / SEC_PRICE_STEP)
+    end
+
+    -- При заявке на продажу, если цена меньше закрытия
+    -- ГО = (БГО + (Цена закрытия - цена заявки)) * (Стоимость шага цены/Шаг цены).
+
+    if operation == "S" and price < PREVPRICE then
+        GO = (BGO + (PREVPRICE - price)) * (STEPPRICE / SEC_PRICE_STEP)
+    end
+
+    PrintDbgStr("Итог ГО: ".. GO)
 
     return math.floor(ACCOUNT_BALANCE / GO)
 end
 
 function doBuy(curPrice)
-    PrintDbgStr("ПОКУПАЕМ! high = "..curPrice)
-
-    local q = getQuantity()
     local price = curPrice + BUFFER -- цена заявки на покупку
+    local q = getQuantity("B", price)
+
+    PrintDbgStr("ПОКУПАЕМ! "..tostring(q))
+
+    -- посчитаем относительный размер стопа
+    local relStopSize = getStopSize()
+    PrintDbgStr("Отн. размер стопа: " .. relStopSize)
+
     local stop_price = math.floor(price - price * relStopSize) -- уровень стопа
 
     -- заявка
@@ -267,18 +284,21 @@ function doBuy(curPrice)
         ["EXPIRY_DATE"] = "TODAY"
     }
 
-    --PrintDbgStr(tostring(stop))
-
     sendTransaction(order)
     sendTransaction(stop)
 end
 
 
 function doSell(curPrice)
-    PrintDbgStr("ПРОДАЕМ! low = " .. curPrice)
-
-    local q = getQuantity()
     local price = curPrice - BUFFER -- цена заявки на продажу
+    local q = getQuantity("S", price)
+
+    PrintDbgStr("ПРОДАЕМ! "..tostring(q))
+
+    -- посчитаем относительный размер стопа
+    local relStopSize = getStopSize()
+    PrintDbgStr("Отн. размер стопа: " .. relStopSize)
+
     local stop_price = math.floor(price + price * relStopSize) -- уровень стопа
 
     -- заявка
@@ -309,7 +329,6 @@ function doSell(curPrice)
         ["EXPIRY_DATE"] = "TODAY"
     }
 
-    --PrintDbgStr(tostring(stop))
     sendTransaction(order)
     sendTransaction(stop)
 end
