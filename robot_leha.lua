@@ -48,7 +48,7 @@ end
 function searchFractals()
     local N = getNumCandles("Fractal")
     local tbl, count, l = getCandlesByIndex("Fractal", 0, N-163, 160)
-    for k, v in pairs(tbl) do
+    for k, v in ipairs(tbl) do
         if v.high > 0 then
             greenf_idx = N - 163 + k
             greenf_dt = v.datetime
@@ -84,6 +84,13 @@ function searchFractals()
             b_state, s_state
         )
     )
+
+    if b_state == 1 then
+        PrintDbgStr("Зеленый подходящий: ".. tostring(greenf_val))
+    end
+    if s_state == 1 then
+        PrintDbgStr("Красный подходящий: ".. tostring(redf_val))
+    end
 end
 
 
@@ -154,7 +161,7 @@ function searchNewFractals(i)
 
     local tbl, count, l = getCandlesByIndex("Fractal", 0, i-4, 1)
     v = tbl[0]
-    PrintDbgStr("Проверяем фрактал " .. v.open .. " " .. v.high .. " " .. v.low .. " ".. v.close .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
+    --PrintDbgStr("Проверяем фрактал " .. v.open .. " " .. v.high .. " " .. v.low .. " ".. v.close .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
 
     if i > greenf_idx and v.high > 0 then
         -- запоминаем фрактал
@@ -375,19 +382,22 @@ function NewPrice(i)
         if b_state == 1 or s_state == 1 then
             local tbl, count, l = getCandlesByIndex("Price", 0, i-2, 1)
             v = tbl[0]
+            PrintDbgStr("Проверяем предыдущую свечу на состояние 2: ".. tostring(v.open) .." "..tostring(v.high).." "..tostring(v.low).." "..tostring(v.close))
             if b_state == 1 then
+                PrintDbgStr("Сравнение с зеленым: ".. tostring(greenf_val))
                 if v.close > greenf_val then
                     b_state = 2
                     high = v.high
-                    PrintDbgStr("Состояние 2 для зеленого фрактала!")
+                    PrintDbgStr("Состояние 2 для зеленого фрактала! Закрытие: "..tostring(v.close)..", Фрактал ".. tostring(greenf_val))
                 end
             end
 
             if s_state == 1 then
+                PrintDbgStr("Сравнение с красным: ".. tostring(redf_val))
                 if v.close < redf_val then
                     s_state = 2
                     low = v.low
-                    PrintDbgStr("Состояние 2 для красного фрактала!")
+                    PrintDbgStr("Состояние 2 для красного фрактала! Закрытие: "..tostring(v.close)..", Фрактал ".. tostring(redf_val))
                 end
             end
         end
