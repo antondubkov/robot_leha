@@ -143,8 +143,8 @@ end
 
 -- функция рассчитывает относительный размер стопа
 function getStopSize()
-    local N = getNumCandles("Price")
-    local t, count, l = getCandlesByIndex("Price", 0, N-numCandlesForStop, numCandlesForStop) -- получить последние 163 свечи
+    local N = getNumCandles("XPrice")
+    local t, count, l = getCandlesByIndex("XPrice", 0, N-numCandlesForStop, numCandlesForStop) -- получить последние 163 свечи
 
     local sum = 0
     for i, row in ipairs(t) do
@@ -161,11 +161,11 @@ function searchNewFractals(i)
 
     local tbl, count, l = getCandlesByIndex("Fractal", 0, i-4, 1)
     v = tbl[0]
-    --PrintDbgStr("Проверяем фрактал " .. v.open .. " " .. v.high .. " " .. v.low .. " ".. v.close .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
+    PrintDbgStr("Проверяем фрактал " .. v.open .. " " .. v.high .. " " .. v.low .. " ".. v.close .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
 
-    if i > greenf_idx and v.high > 0 then
+    if v.high > 0 then
         -- запоминаем фрактал
-        greenf_idx = i-3
+        greenf_idx = i-4
         greenf_dt = v.datetime
         PrintDbgStr("Новый зеленый " .. v.high .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
 
@@ -185,9 +185,9 @@ function searchNewFractals(i)
         end
     end
 
-    if i > redf_idx and v.low > 0 then
+    if v.low > 0 then
         -- запоминаем фрактал
-        redf_idx = i-3
+        redf_idx = i-4
         redf_dt = v.datetime
         PrintDbgStr("Новый красный " .. v.low .. " " .. v.datetime.hour .. ":" .. v.datetime.min)
 
@@ -380,9 +380,9 @@ function NewPrice(i)
 
         -- если мы в статусе 1 -- проверить прошлую свечу на удовл условию б)
         if b_state == 1 or s_state == 1 then
-            local tbl, count, l = getCandlesByIndex("Price", 0, i-2, 1)
+            local tbl, count, l = getCandlesByIndex("XPrice", 0, i-2, 1)
             v = tbl[0]
-            PrintDbgStr("Проверяем предыдущую свечу на состояние 2: ".. tostring(v.open) .." "..tostring(v.high).." "..tostring(v.low).." "..tostring(v.close))
+            PrintDbgStr("Проверяем предыдущую свечу на состояние 2: ".. tostring(v.open) .." "..tostring(v.high).." "..tostring(v.low).." "..tostring(v.close).." "..v.datetime.hour .. ":" .. v.datetime.min)
             if b_state == 1 then
                 PrintDbgStr("Сравнение с зеленым: ".. tostring(greenf_val))
                 if v.close > greenf_val then
