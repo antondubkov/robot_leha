@@ -261,7 +261,8 @@ function doBuy(curPrice)
     local relStopSize = getStopSize()
     PrintDbgStr("ќтн. размер стопа: " .. relStopSize)
 
-    local stop_price = math.floor(price - price * relStopSize) -- уровень стопа
+    local stop_price = math.floor(curPrice - curPrice * relStopSize) -- уровень стопа
+    PrintDbgStr("—топ-цена: " .. stop_price)
 
     -- за€вка
     local order = {
@@ -306,7 +307,8 @@ function doSell(curPrice)
     local relStopSize = getStopSize()
     PrintDbgStr("ќтн. размер стопа: " .. relStopSize)
 
-    local stop_price = math.floor(price + price * relStopSize) -- уровень стопа
+    local stop_price = math.floor(curPrice + curPrice * relStopSize) -- уровень стопа
+    PrintDbgStr("—топ-цена: " .. stop_price)
 
     -- за€вка
     local order = {
@@ -351,6 +353,8 @@ function NewPrice(i)
 
     local curPrice = DS:C(i) -- цена
     local dt = DS:T(i) -- врем€ новой свечи
+    local curPrice_H = DS:H(i) -- хай свечи
+    local curPrice_L = DS:L(i) -- лоу свечи
 
     -- нова€ свеча -- произвести необходимые действи€
     if last_idx < i then
@@ -405,7 +409,7 @@ function NewPrice(i)
 
     -- если мы в статусе 2 -- провер€ем текущую цену на условие в)
     if b_state == 2 then
-        if curPrice > high then
+        if curPrice_H > high then
             -- покупаем
             doBuy(high)
             -- конец
@@ -415,7 +419,7 @@ function NewPrice(i)
     end
 
     if s_state == 2 then
-        if curPrice < low then
+        if curPrice_L < low then
             -- продаем
             doSell(low)
             -- конец
